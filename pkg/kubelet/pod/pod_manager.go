@@ -112,6 +112,9 @@ type basicManager struct {
 	podByFullName       map[string]*v1.Pod
 	mirrorPodByFullName map[string]*v1.Pod
 
+	// Store parent of virtualPod
+	parentPodOfVirtualPod map[string]*v1.Pod
+
 	// Mirror pod UID to pod UID map.
 	translationByUID map[kubetypes.MirrorPodUID]kubetypes.ResolvedPodUID
 
@@ -143,8 +146,16 @@ func (pm *basicManager) SetPods(newPods []*v1.Pod) {
 	pm.mirrorPodByUID = make(map[kubetypes.MirrorPodUID]*v1.Pod)
 	pm.mirrorPodByFullName = make(map[string]*v1.Pod)
 	pm.translationByUID = make(map[kubetypes.MirrorPodUID]kubetypes.ResolvedPodUID)
+	pm.parentPodOfVirtualPod = make(map[string]*v1.Pod)
 
 	pm.updatePodsInternal(newPods...)
+}
+
+func (pm *basicManager) CheckCforkTemplate(pod *v1.Pod) (exist bool, key string) {
+	if key, ok := pod.Annotations["cfork-template"]; ok {
+		return true, key
+	}
+	return false, ""
 }
 
 func (pm *basicManager) AddPod(pod *v1.Pod) {
@@ -194,6 +205,19 @@ func (pm *basicManager) updatePodsInternal(pods ...*v1.Pod) {
 			pm.podByFullName[podFullName] = pod
 			if mirror, ok := pm.mirrorPodByFullName[podFullName]; ok {
 				pm.translationByUID[kubetypes.MirrorPodUID(mirror.UID)] = resolvedPodUID
+			}
+		}
+
+		// TODO: check cfork template
+		exist, key := pm.CheckCforkTemplate(pod)
+		if exist {
+			// whether it is a virtual pod
+			parent, ok := pm.parentPodOfVirtualPod[key]
+			if !ok {
+				pm.parentPodOfVirtualPod[key] = pod
+			} else {
+				pod.VirtualPod = true
+				pod.ParentPod = parent
 			}
 		}
 	}

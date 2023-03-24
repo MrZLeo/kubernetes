@@ -458,6 +458,9 @@ type podActions struct {
 	// The attempt number of creating sandboxes for the pod.
 	Attempt uint32
 
+	// (TODO:) Whether do cfork for a virtualPod
+	forkPod bool
+
 	// The next init container to start.
 	NextInitContainerToStart *v1.Container
 	// ContainersToStart keeps a list of indexes for the containers to start,
@@ -500,6 +503,7 @@ func (m *kubeGenericRuntimeManager) computePodActions(pod *v1.Pod, podStatus *ku
 		CreateSandbox:     createPodSandbox,
 		SandboxID:         sandboxID,
 		Attempt:           attempt,
+		forkPod:           runtimeutil.IsVirtualPod(pod),
 		ContainersToStart: []int{},
 		ContainersToKill:  make(map[kubecontainer.ContainerID]containerToKillInfo),
 	}
@@ -516,6 +520,12 @@ func (m *kubeGenericRuntimeManager) computePodActions(pod *v1.Pod, podStatus *ku
 			// If ContainerStatuses is empty, we assume that we've never
 			// successfully created any containers. In this case, we should
 			// retry creating the sandbox.
+			changes.CreateSandbox = false
+			return changes
+		}
+
+		// check whether it is the first time to sync a virtual pod
+		if changes.forkPod {
 			changes.CreateSandbox = false
 			return changes
 		}
@@ -822,6 +832,7 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 		podIP = podIPs[0]
 	}
 
+	// TODO: 2023.3.20
 	// Get podSandboxConfig for containers to start.
 	configPodSandboxResult := kubecontainer.NewSyncResult(kubecontainer.ConfigPodSandbox, podSandboxID)
 	result.AddSyncResult(configPodSandboxResult)
@@ -900,6 +911,17 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 	for _, idx := range podContainerChanges.ContainersToStart {
 		start(ctx, "container", metrics.Container, containerStartSpec(&pod.Spec.Containers[idx]))
 	}
+
+	// Step 8: do container fork for virtual pod
+	if pod.VirtualPod {
+		klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
+		_, err := m.forkContainer(ctx, pod)
+		if err != nil {
+			return
+		}
+	}
+
+	// TODO: check how status be expressed in kubelet
 
 	return
 }

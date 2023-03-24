@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	goruntime "runtime"
@@ -292,6 +293,57 @@ func (m *kubeGenericRuntimeManager) startContainer(ctx context.Context, podSandb
 	}
 
 	return "", nil
+}
+
+// TODO: call cfork to fork a instance in template Pod
+//
+// We need to do four things:
+// 1. get templatePodId from virtualPodID
+// 2. call cfork:
+//   - directly call `runc`: how to call command and how to get ID of container?
+//   - use CRI to do cfork: by which CRI command?
+//
+// 3. get a containerID for this container instance
+// 4. modify status?
+func (m *kubeGenericRuntimeManager) forkContainer(_ context.Context, pod *v1.Pod) (string, error) {
+	// TODO: how to modify status?
+	// TODO: how to call runc?
+	// TODO: how to modify status
+
+	// step 1: get the parent of virtual pod
+	parentPod := pod.ParentPod
+
+	// step 2: get the container ID of spin and base
+	var (
+		spin string
+		base string
+	)
+	for _, containerStatus := range parentPod.Status.ContainerStatuses {
+		if containerStatus.Name == "spin" {
+			spin = containerStatus.ContainerID
+		}
+		if containerStatus.Name == "base" {
+			base = containerStatus.ContainerID
+		}
+	}
+
+	// step 3: call runc fork2container
+	cmd := exec.Command(
+		"runc",
+		"fork2container",
+		"--zygote",
+		base,
+		"--target",
+		spin,
+	)
+
+	// step 4: get result of
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(out), nil
 }
 
 // generateContainerConfig generates container config for kubelet runtime v1.

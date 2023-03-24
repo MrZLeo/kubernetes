@@ -23,6 +23,10 @@ import (
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 )
 
+func IsVirtualPod(pod *v1.Pod) bool {
+	return pod.VirtualPod
+}
+
 // PodSandboxChanged checks whether the spec of the pod is changed and returns
 // (changed, new attempt, original sandboxID if exist).
 func PodSandboxChanged(pod *v1.Pod, podStatus *kubecontainer.PodStatus) (bool, uint32, string) {
