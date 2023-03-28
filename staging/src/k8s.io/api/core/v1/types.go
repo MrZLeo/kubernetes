@@ -4119,7 +4119,7 @@ type Pod struct {
 
 	// If it's virtual Pod
 	VirtualPod bool
-	ParentPod  *Pod
+	ParentPod  string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

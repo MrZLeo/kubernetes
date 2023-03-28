@@ -917,7 +917,22 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 		klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
 		_, err := m.forkContainer(ctx, pod)
 		if err != nil {
+			klog.V(0).InfoS("cfork fail", "pod", klog.KObj(pod))
 			return
+		}
+
+		// create podsanbox
+		createSandboxResult := kubecontainer.NewSyncResult(kubecontainer.CreatePodSandbox, format.Pod(pod))
+		result.AddSyncResult(createSandboxResult)
+
+		// configPodSandbox
+		configPodSandboxResult := kubecontainer.NewSyncResult(kubecontainer.ConfigPodSandbox, podSandboxID)
+		result.AddSyncResult(configPodSandboxResult)
+
+		// start container
+		for _, container := range pod.Spec.Containers {
+			startContainerResult := kubecontainer.NewSyncResult(kubecontainer.StartContainer, container.Name)
+			result.AddSyncResult(startContainerResult)
 		}
 	}
 

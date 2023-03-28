@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/kubelet/configmap"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	"k8s.io/kubernetes/pkg/kubelet/metrics"
@@ -113,7 +114,7 @@ type basicManager struct {
 	mirrorPodByFullName map[string]*v1.Pod
 
 	// Store parent of virtualPod
-	parentPodOfVirtualPod map[string]*v1.Pod
+	parentPodOfVirtualPod map[string]string
 
 	// Mirror pod UID to pod UID map.
 	translationByUID map[kubetypes.MirrorPodUID]kubetypes.ResolvedPodUID
@@ -146,7 +147,7 @@ func (pm *basicManager) SetPods(newPods []*v1.Pod) {
 	pm.mirrorPodByUID = make(map[kubetypes.MirrorPodUID]*v1.Pod)
 	pm.mirrorPodByFullName = make(map[string]*v1.Pod)
 	pm.translationByUID = make(map[kubetypes.MirrorPodUID]kubetypes.ResolvedPodUID)
-	pm.parentPodOfVirtualPod = make(map[string]*v1.Pod)
+	pm.parentPodOfVirtualPod = make(map[string]string)
 
 	pm.updatePodsInternal(newPods...)
 }
@@ -210,14 +211,17 @@ func (pm *basicManager) updatePodsInternal(pods ...*v1.Pod) {
 
 		// TODO: check cfork template
 		exist, key := pm.CheckCforkTemplate(pod)
+		klog.V(0).InfoS("get a template", "pod", klog.KObj(pod))
+		// whether it is a virtual pod
 		if exist {
-			// whether it is a virtual pod
 			parent, ok := pm.parentPodOfVirtualPod[key]
-			if !ok {
-				pm.parentPodOfVirtualPod[key] = pod
-			} else {
-				pod.VirtualPod = true
+			if ok && parent != podFullName {
+				klog.V(0).InfoS("get a virtual pod", "pod", klog.KObj(pod))
 				pod.ParentPod = parent
+				pod.VirtualPod = true
+			} else {
+				pm.parentPodOfVirtualPod[key] = podFullName
+				klog.V(0).InfoS("get a template pod", "pod", klog.KObj(pod))
 			}
 		}
 	}

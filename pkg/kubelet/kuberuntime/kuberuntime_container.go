@@ -305,31 +305,38 @@ func (m *kubeGenericRuntimeManager) startContainer(ctx context.Context, podSandb
 //
 // 3. get a containerID for this container instance
 // 4. modify status?
-func (m *kubeGenericRuntimeManager) forkContainer(_ context.Context, pod *v1.Pod) (string, error) {
+func (m *kubeGenericRuntimeManager) forkContainer(ctx context.Context, pod *v1.Pod) (string, error) {
 	// TODO: how to modify status?
 	// TODO: how to call runc?
 	// TODO: how to modify status
 
 	// step 1: get the parent of virtual pod
-	parentPod := pod.ParentPod
+	pods, _ := m.GetPods(ctx, false)
+	parentPod := kubecontainer.Pods.FindPodByFullName(pods, pod.ParentPod)
 
 	// step 2: get the container ID of spin and base
 	var (
-		spin string
-		base string
+		spin string = ""
+		base string = ""
 	)
-	for _, containerStatus := range parentPod.Status.ContainerStatuses {
-		if containerStatus.Name == "spin" {
-			spin = containerStatus.ContainerID
+
+	containers := parentPod.Containers
+	for _, container := range containers {
+		if container.Name == "spin" {
+			spin = container.ID.ID
 		}
-		if containerStatus.Name == "base" {
-			base = containerStatus.ContainerID
+		if container.Name == "base" {
+			base = container.ID.ID
 		}
 	}
 
+	klog.V(0).Infof("spin: %s", spin)
+	klog.V(0).Infof("base: %s", base)
+
 	// step 3: call runc fork2container
 	cmd := exec.Command(
-		"runc",
+		// hardcoded to avoid wrong runc
+		"/home/fedora/runc/runc",
 		"fork2container",
 		"--zygote",
 		base,
@@ -337,11 +344,14 @@ func (m *kubeGenericRuntimeManager) forkContainer(_ context.Context, pod *v1.Pod
 		spin,
 	)
 
-	// step 4: get result of
+	// step 4: get result of runc fork2container
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
+
+	// step 5: modify status
+	// TODO
 
 	return string(out), nil
 }
