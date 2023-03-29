@@ -1845,6 +1845,30 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 		return false, nil
 	}
 
+	// status for virtual pod
+	// if pod.VirtualPod {
+	// 	klog.V(0).Infof("Setting virtual pod's status")
+	// 	kubeContainerStatuses := []*kubecontainer.Status{}
+
+	// 	for _, container := range pod.Spec.Containers {
+	// 		kubeContainerStatuses = append(kubeContainerStatuses, &kubecontainer.Status{
+	// 			Name:      container.Name,
+	// 			State:     kubecontainer.ContainerStateRunning,
+	// 			CreatedAt: time.Now(),
+	// 			StartedAt: time.Now(),
+	// 			Image:     container.Image,
+	// 		})
+	// 	}
+	// 	virtualPodStatus := kubecontainer.PodStatus{
+	// 		Name:              pod.Name,
+	// 		Namespace:         pod.Namespace,
+	// 		SandboxStatuses:   []*runtimeapi.PodSandboxStatus{},
+	// 		ContainerStatuses: kubeContainerStatuses,
+	// 	}
+
+	// 	kl.podCache.Set(pod.UID, &virtualPodStatus, nil, time.Now())
+	// }
+
 	return false, nil
 }
 

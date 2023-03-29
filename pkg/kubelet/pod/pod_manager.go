@@ -211,7 +211,6 @@ func (pm *basicManager) updatePodsInternal(pods ...*v1.Pod) {
 
 		// TODO: check cfork template
 		exist, key := pm.CheckCforkTemplate(pod)
-		klog.V(0).InfoS("get a template", "pod", klog.KObj(pod))
 		// whether it is a virtual pod
 		if exist {
 			parent, ok := pm.parentPodOfVirtualPod[key]
@@ -241,6 +240,15 @@ func (pm *basicManager) DeletePod(pod *v1.Pod) {
 	} else {
 		delete(pm.podByUID, kubetypes.ResolvedPodUID(pod.UID))
 		delete(pm.podByFullName, podFullName)
+	}
+
+	// clean template pod
+	if exist, key := pm.CheckCforkTemplate(pod); exist {
+		parent, ok := pm.parentPodOfVirtualPod[key]
+		if ok && parent == podFullName {
+			klog.V(0).InfoS("delete a template pod", "pod", klog.KObj(pod))
+			delete(pm.parentPodOfVirtualPod, key)
+		}
 	}
 }
 

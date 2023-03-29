@@ -921,19 +921,36 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 			return
 		}
 
+		// pods, _ := m.GetPods(ctx, false)
+		// kubePod := kubecontainer.Pods.FindPodByFullName(pods, kubecontainer.GetPodFullName(pod))
+		// kubePod.
+
 		// create podsanbox
-		createSandboxResult := kubecontainer.NewSyncResult(kubecontainer.CreatePodSandbox, format.Pod(pod))
-		result.AddSyncResult(createSandboxResult)
+		// createSandboxResult := kubecontainer.NewSyncResult(kubecontainer.CreatePodSandbox, format.Pod(pod))
+		// result.AddSyncResult(createSandboxResult)
 
-		// configPodSandbox
-		configPodSandboxResult := kubecontainer.NewSyncResult(kubecontainer.ConfigPodSandbox, podSandboxID)
-		result.AddSyncResult(configPodSandboxResult)
+		// // configPodSandbox
+		// configPodSandboxResult := kubecontainer.NewSyncResult(kubecontainer.ConfigPodSandbox, podSandboxID)
+		// result.AddSyncResult(configPodSandboxResult)
 
-		// start container
+		// // start container
+		// kubeContainerStatuses := []*kubecontainer.Status{}
 		for _, container := range pod.Spec.Containers {
-			startContainerResult := kubecontainer.NewSyncResult(kubecontainer.StartContainer, container.Name)
-			result.AddSyncResult(startContainerResult)
+			// TODO: try to record this
+			m.recordContainerEvent(pod, &container, "virtual-container", v1.EventTypeNormal, events.CreatedContainer, fmt.Sprintf("Created container %s", container.Name))
+			m.recordContainerEvent(pod, &container, "virtual-container", v1.EventTypeNormal, events.StartedContainer, fmt.Sprintf("Started container %s", container.Name))
+
+			// kubeContainerStatuses = append(kubeContainerStatuses, &kubecontainer.Status{
+			// 	State: kubecontainer.ContainerStateRunning,
+			// })
 		}
+		// t := kubecontainer.PodStatus{
+		// 	Name:              pod.Name,
+		// 	Namespace:         pod.Namespace,
+		// 	IPs:               podIPs,
+		// 	SandboxStatuses:   []*runtimeapi.PodSandboxStatus{},
+		// 	ContainerStatuses: kubeContainerStatuses,
+		// }
 	}
 
 	// TODO: check how status be expressed in kubelet
