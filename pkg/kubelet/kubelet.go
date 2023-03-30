@@ -1846,29 +1846,69 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 	}
 
 	// status for virtual pod
-	// if pod.VirtualPod {
-	// 	klog.V(0).Infof("Setting virtual pod's status")
-	// 	kubeContainerStatuses := []*kubecontainer.Status{}
+	if pod.VirtualPod {
+		klog.V(0).Infof("Setting virtual pod's status")
 
-	// 	for _, container := range pod.Spec.Containers {
-	// 		kubeContainerStatuses = append(kubeContainerStatuses, &kubecontainer.Status{
-	// 			Name:      container.Name,
-	// 			State:     kubecontainer.ContainerStateRunning,
-	// 			CreatedAt: time.Now(),
-	// 			StartedAt: time.Now(),
-	// 			Image:     container.Image,
-	// 		})
-	// 	}
-	// 	virtualPodStatus := kubecontainer.PodStatus{
-	// 		Name:              pod.Name,
-	// 		Namespace:         pod.Namespace,
-	// 		SandboxStatuses:   []*runtimeapi.PodSandboxStatus{},
-	// 		ContainerStatuses: kubeContainerStatuses,
-	// 	}
+		timeNow := time.Now()
+		timeNowV1 := &metav1.Time{Time: timeNow}
 
-	// 	kl.podCache.Set(pod.UID, &virtualPodStatus, nil, time.Now())
-	// }
+		// set virtual sandbox status
+		virtualSandboxStatus := runtimeapi.PodSandboxStatus{
+			Id:        "virtual-sandbox",
+			Metadata:  &runtimeapi.PodSandboxMetadata{},
+			State:     nodeStatusUpdateRetry,
+			CreatedAt: timeNow.Unix(),
+		}
+		podStatus.SandboxStatuses = []*runtimeapi.PodSandboxStatus{&virtualSandboxStatus}
 
+		// set virtual container status
+		kubeContainerStatuses := []*kubecontainer.Status{}
+		ContainerStatusV1 := []v1.ContainerStatus{}
+		for _, container := range pod.Spec.Containers {
+			kubeContainerStatuses = append(kubeContainerStatuses, &kubecontainer.Status{
+				Name:      container.Name,
+				State:     kubecontainer.ContainerStateRunning,
+				CreatedAt: timeNow,
+				StartedAt: timeNow,
+				Image:     container.Image,
+			})
+			ContainerStatusV1 = append(ContainerStatusV1, v1.ContainerStatus{
+				Name:         container.Name,
+				State:        v1.ContainerState{Running: &v1.ContainerStateRunning{StartedAt: *timeNowV1}},
+				Ready:        true,
+				RestartCount: 0,
+				Image:        container.Image,
+				ContainerID:  "virtual-container",
+			})
+		}
+		virtualPodStatus := kubecontainer.PodStatus{
+			Name:              pod.Name,
+			Namespace:         pod.Namespace,
+			SandboxStatuses:   []*runtimeapi.PodSandboxStatus{&virtualSandboxStatus},
+			ContainerStatuses: kubeContainerStatuses,
+		}
+		podStatus.ContainerStatuses = kubeContainerStatuses
+
+		// update pod cache
+		kl.podCache.Set(pod.UID, &virtualPodStatus, nil, timeNow)
+
+		// set API pod status
+		pod.Status = v1.PodStatus{
+			Phase:             v1.PodRunning,
+			Reason:            "This is a virtual pod",
+			StartTime:         timeNowV1,
+			ContainerStatuses: ContainerStatusV1,
+		}
+		// pod.Status.ContainerStatuses[0].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
+		// pod.Status.ContainerStatuses[1].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
+		// pod.Status.ContainerStatuses[2].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
+		// apiPodStatus.Phase = v1.PodRunning
+		// apiPodStatus.ContainerStatuses[0].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
+		// apiPodStatus.ContainerStatuses[1].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
+		// apiPodStatus.ContainerStatuses[2].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
+		// apiPodStatus.StartTime = timeNowV1
+		apiPodStatus = pod.Status
+	}
 	return false, nil
 }
 

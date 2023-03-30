@@ -920,6 +920,7 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 			klog.V(0).InfoS("cfork fail", "pod", klog.KObj(pod))
 			return
 		}
+		// TODO: store newPid into pod's Status
 
 		// pods, _ := m.GetPods(ctx, false)
 		// kubePod := kubecontainer.Pods.FindPodByFullName(pods, kubecontainer.GetPodFullName(pod))
