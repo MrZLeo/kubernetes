@@ -1614,6 +1614,8 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 	defer func() {
 		klog.V(4).InfoS("syncPod exit", "pod", klog.KObj(pod), "podUID", pod.UID, "isTerminal", isTerminal)
 	}()
+	timeNow := time.Now().UnixNano()
+	klog.V(0).Infof("[cfork@%d,%06d]: Start Pod %s\n", timeNow/1e6, timeNow%1e6, pod)
 
 	// Latency measurements for the main workflow are relative to the
 	// first time the pod was seen by kubelet.
@@ -1907,7 +1909,7 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 		// apiPodStatus.ContainerStatuses[1].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
 		// apiPodStatus.ContainerStatuses[2].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
 		// apiPodStatus.StartTime = timeNowV1
-		apiPodStatus = pod.Status
+		// apiPodStatus = pod.Status
 	}
 	return false, nil
 }

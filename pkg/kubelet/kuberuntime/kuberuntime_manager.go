@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"time"
@@ -154,11 +155,14 @@ type kubeGenericRuntimeManager struct {
 	// MemorySwapBehavior defines how swap is used
 	memorySwapBehavior string
 
-	//Function to get node allocatable resources
+	// Function to get node allocatable resources
 	getNodeAllocatable func() v1.ResourceList
 
 	// Memory throttling factor for MemoryQoS
 	memoryThrottlingFactor float64
+
+	// Pid of virtual pod
+	VirtualPid map[string]string
 }
 
 // KubeGenericRuntime is a interface contains interfaces for container runtime and command.
@@ -223,6 +227,7 @@ func NewKubeGenericRuntimeManager(
 		memorySwapBehavior:     memorySwapBehavior,
 		getNodeAllocatable:     getNodeAllocatable,
 		memoryThrottlingFactor: memoryThrottlingFactor,
+		VirtualPid:             make(map[string]string),
 	}
 
 	typedVersion, err := kubeRuntimeManager.getTypedVersion(ctx)
@@ -915,46 +920,27 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 	// Step 8: do container fork for virtual pod
 	if pod.VirtualPod {
 		klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
-		_, err := m.forkContainer(ctx, pod)
+		pid, err := m.forkContainer(ctx, pod)
 		if err != nil {
 			klog.V(0).InfoS("cfork fail", "pod", klog.KObj(pod))
 			return
 		}
-		// TODO: store newPid into pod's Status
+		klog.V(0).Infof("cfork finished, pid=%s", pid)
 
-		// pods, _ := m.GetPods(ctx, false)
-		// kubePod := kubecontainer.Pods.FindPodByFullName(pods, kubecontainer.GetPodFullName(pod))
-		// kubePod.
+		// create sandbox
+		configPodSandboxResult := kubecontainer.NewSyncResult(kubecontainer.ConfigPodSandbox, podSandboxID)
+		result.AddSyncResult(configPodSandboxResult)
 
-		// create podsanbox
-		// createSandboxResult := kubecontainer.NewSyncResult(kubecontainer.CreatePodSandbox, format.Pod(pod))
-		// result.AddSyncResult(createSandboxResult)
-
-		// // configPodSandbox
-		// configPodSandboxResult := kubecontainer.NewSyncResult(kubecontainer.ConfigPodSandbox, podSandboxID)
-		// result.AddSyncResult(configPodSandboxResult)
-
-		// // start container
-		// kubeContainerStatuses := []*kubecontainer.Status{}
+		// start container
 		for _, container := range pod.Spec.Containers {
-			// TODO: try to record this
+			startContainerResult := kubecontainer.NewSyncResult(kubecontainer.StartContainer, container.Name)
+			result.AddSyncResult(startContainerResult)
+
 			m.recordContainerEvent(pod, &container, "virtual-container", v1.EventTypeNormal, events.CreatedContainer, fmt.Sprintf("Created container %s", container.Name))
 			m.recordContainerEvent(pod, &container, "virtual-container", v1.EventTypeNormal, events.StartedContainer, fmt.Sprintf("Started container %s", container.Name))
-
-			// kubeContainerStatuses = append(kubeContainerStatuses, &kubecontainer.Status{
-			// 	State: kubecontainer.ContainerStateRunning,
-			// })
 		}
-		// t := kubecontainer.PodStatus{
-		// 	Name:              pod.Name,
-		// 	Namespace:         pod.Namespace,
-		// 	IPs:               podIPs,
-		// 	SandboxStatuses:   []*runtimeapi.PodSandboxStatus{},
-		// 	ContainerStatuses: kubeContainerStatuses,
-		// }
+		pod.VirtualPID = pid
 	}
-
-	// TODO: check how status be expressed in kubelet
 
 	return
 }
@@ -1021,7 +1007,40 @@ func (m *kubeGenericRuntimeManager) killPodWithSyncResult(ctx context.Context, p
 		}
 	}
 
+	// stop virtual pod
+	if pod.VirtualPod {
+		m.deleteVirtualPod(ctx, pod)
+	}
+
 	return
+}
+
+func (m *kubeGenericRuntimeManager) deleteVirtualPod(ctx context.Context, pod *v1.Pod) {
+	// step 1: get the parent of virtual pod
+	pods, _ := m.GetPods(ctx, false)
+	parentPod := kubecontainer.Pods.FindPodByFullName(pods, pod.ParentPod)
+
+	// step 2: get the container ID of spin
+	var spin string = ""
+	containers := parentPod.Containers
+	for _, container := range containers {
+		if container.Name == "spin" {
+			spin = container.ID.ID
+			klog.V(0).Infof("get spin %s", spin)
+		}
+	}
+
+	// step 3: get pid of virtual pod
+	pid := m.VirtualPid[pod.Name]
+
+	// step 4: kill the process by runc
+	// hard coded to avoid comfusion of runc version, don't do this in real code
+	cmd := exec.Command("/home/fedora/runc/runc", "exec", spin, "kill", "-9", pid)
+	out, err := cmd.Output()
+	klog.V(0).Infof("finish delete virtual pid: %s, result: %s", pid, string(out))
+	if err != nil {
+		klog.V(0).Info("delete virtual pod error")
+	}
 }
 
 func (m *kubeGenericRuntimeManager) GeneratePodStatus(event *runtimeapi.ContainerEventResponse) (*kubecontainer.PodStatus, error) {

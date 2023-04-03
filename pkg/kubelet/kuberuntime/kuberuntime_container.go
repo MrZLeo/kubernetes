@@ -350,10 +350,15 @@ func (m *kubeGenericRuntimeManager) forkContainer(ctx context.Context, pod *v1.P
 		return "", err
 	}
 
-	// step 5: modify status
-	// TODO
+	// step 5: store pid
+	pid := string(out)
+	pid = strings.TrimRightFunc(pid, func(r rune) bool {
+		return r == '\n' || r == ' '
+	})
 
-	return string(out), nil
+	m.VirtualPid[pod.Name] = pid
+
+	return pid, nil
 }
 
 // generateContainerConfig generates container config for kubelet runtime v1.
