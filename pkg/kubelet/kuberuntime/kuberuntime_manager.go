@@ -939,7 +939,18 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 			m.recordContainerEvent(pod, &container, "virtual-container", v1.EventTypeNormal, events.CreatedContainer, fmt.Sprintf("Created container %s", container.Name))
 			m.recordContainerEvent(pod, &container, "virtual-container", v1.EventTypeNormal, events.StartedContainer, fmt.Sprintf("Started container %s", container.Name))
 		}
-		pod.VirtualPID = pid
+	}
+
+	// step 9: do container fork for template as an init
+	if pod.TemplatePod && !pod.TemplateInit {
+		klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
+		pid, err := m.forkContainer(ctx, pod)
+		if err != nil {
+			klog.V(0).InfoS("cfork fail", "pod", klog.KObj(pod))
+			return
+		}
+		klog.V(0).Infof("cfork finished, pid=%s", pid)
+		pod.TemplateInit = true
 	}
 
 	return

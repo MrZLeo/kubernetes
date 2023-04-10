@@ -219,8 +219,10 @@ func (pm *basicManager) updatePodsInternal(pods ...*v1.Pod) {
 				pod.ParentPod = parent
 				pod.VirtualPod = true
 			} else {
-				pm.parentPodOfVirtualPod[key] = podFullName
 				klog.V(0).InfoS("get a template pod", "pod", klog.KObj(pod))
+				pm.parentPodOfVirtualPod[key] = podFullName
+				pod.ParentPod = podFullName
+				pod.TemplatePod = true
 			}
 		}
 	}

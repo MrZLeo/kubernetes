@@ -4118,9 +4118,10 @@ type Pod struct {
 	Status PodStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 
 	// If it's virtual Pod
-	VirtualPod bool
-	ParentPod  string
-	VirtualPID string
+	TemplatePod  bool
+	TemplateInit bool
+	VirtualPod   bool
+	ParentPod    string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

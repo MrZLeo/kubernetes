@@ -1847,7 +1847,7 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 		return false, nil
 	}
 
-	// status for virtual pod
+	// fake status for virtual pod
 	if pod.VirtualPod {
 		klog.V(0).Infof("Setting virtual pod's status")
 
@@ -1901,15 +1901,6 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 			StartTime:         timeNowV1,
 			ContainerStatuses: ContainerStatusV1,
 		}
-		// pod.Status.ContainerStatuses[0].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
-		// pod.Status.ContainerStatuses[1].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
-		// pod.Status.ContainerStatuses[2].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
-		// apiPodStatus.Phase = v1.PodRunning
-		// apiPodStatus.ContainerStatuses[0].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
-		// apiPodStatus.ContainerStatuses[1].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
-		// apiPodStatus.ContainerStatuses[2].State.Running = &v1.ContainerStateRunning{StartedAt: *timeNowV1}
-		// apiPodStatus.StartTime = timeNowV1
-		// apiPodStatus = pod.Status
 	}
 	return false, nil
 }
