@@ -230,6 +230,9 @@ func (m *kubeGenericRuntimeManager) startContainer(ctx context.Context, podSandb
 		return s.Message(), ErrPreCreateHook
 	}
 
+	timeNow := time.Now().UnixNano()
+	klog.V(0).Infof("[cfork@%d]: Creating container %s\n", timeNow/1e6, pod.Name)
+
 	containerID, err := m.runtimeService.CreateContainer(ctx, podSandboxID, containerConfig, podSandboxConfig)
 	if err != nil {
 		s, _ := grpcstatus.FromError(err)
@@ -245,6 +248,9 @@ func (m *kubeGenericRuntimeManager) startContainer(ctx context.Context, podSandb
 	m.recordContainerEvent(pod, container, containerID, v1.EventTypeNormal, events.CreatedContainer, fmt.Sprintf("Created container %s", container.Name))
 
 	// Step 3: start the container.
+	timeNow = time.Now().UnixNano()
+	klog.V(0).Infof("[cfork@%d]: Starting container %s\n", timeNow/1e6, pod.Name)
+
 	err = m.runtimeService.StartContainer(ctx, containerID)
 	if err != nil {
 		s, _ := grpcstatus.FromError(err)
@@ -309,6 +315,9 @@ func (m *kubeGenericRuntimeManager) forkContainer(ctx context.Context, pod *v1.P
 	// TODO: how to modify status?
 	// TODO: how to call runc?
 	// TODO: how to modify status
+
+	timeNow := time.Now().UnixNano()
+	klog.V(0).Infof("[cfork@%d]: Fork container %s\n", timeNow/1e6, pod.Name)
 
 	// step 1: get the parent of virtual pod
 	pods, _ := m.GetPods(ctx, false)

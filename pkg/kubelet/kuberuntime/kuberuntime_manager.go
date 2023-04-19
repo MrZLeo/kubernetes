@@ -764,6 +764,10 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 		var msg string
 		var err error
 
+		// timestamp for sandbox run
+		timeNow := time.Now().UnixNano()
+		klog.V(0).Infof("[cfork@%d]: Creating PodSandbox %s\n", timeNow/1e6, pod.Name)
+
 		klog.V(4).InfoS("Creating PodSandbox for pod", "pod", klog.KObj(pod))
 		metrics.StartedPodsTotal.Inc()
 		createSandboxResult := kubecontainer.NewSyncResult(kubecontainer.CreatePodSandbox, format.Pod(pod))
@@ -919,6 +923,11 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 
 	// Step 8: do container fork for virtual pod
 	if pod.VirtualPod {
+		// check if pod is already forked
+		if _, exist := m.VirtualPid[pod.Name]; exist {
+			return
+		}
+
 		klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
 		pid, err := m.forkContainer(ctx, pod)
 		if err != nil {
@@ -942,16 +951,16 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 	}
 
 	// step 9: do container fork for template as an init
-	if pod.TemplatePod && !pod.TemplateInit {
-		klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
-		pid, err := m.forkContainer(ctx, pod)
-		if err != nil {
-			klog.V(0).InfoS("cfork fail", "pod", klog.KObj(pod))
-			return
-		}
-		klog.V(0).Infof("cfork finished, pid=%s", pid)
-		pod.TemplateInit = true
-	}
+	// if pod.TemplatePod && !pod.TemplateInit {
+	// 	klog.V(0).InfoS("call cfork", "pod", klog.KObj(pod))
+	// 	pid, err := m.forkContainer(ctx, pod)
+	// 	if err != nil {
+	// 		klog.V(0).InfoS("cfork fail", "pod", klog.KObj(pod))
+	// 		return
+	// 	}
+	// 	klog.V(0).Infof("cfork finished, pid=%s", pid)
+	// 	pod.TemplateInit = true
+	// }
 
 	return
 }
@@ -1019,9 +1028,9 @@ func (m *kubeGenericRuntimeManager) killPodWithSyncResult(ctx context.Context, p
 	}
 
 	// stop virtual pod
-	if pod.VirtualPod {
-		m.deleteVirtualPod(ctx, pod)
-	}
+	// if pod.VirtualPod {
+	// 	m.deleteVirtualPod(ctx, pod)
+	// }
 
 	return
 }

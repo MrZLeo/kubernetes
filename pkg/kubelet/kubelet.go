@@ -1607,6 +1607,10 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 // the most accurate information possible about an error situation to aid debugging.
 // Callers should not write an event if this operation returns an error.
 func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, pod, mirrorPod *v1.Pod, podStatus *kubecontainer.PodStatus) (isTerminal bool, err error) {
+	// timestamp for test
+	timeNow := time.Now().UnixNano()
+	klog.V(0).Infof("[cfork@%d]: Start Pod %s\n", timeNow/1e6, pod.Name)
+
 	// TODO(#113606): connect this with the incoming context parameter, which comes from the pod worker.
 	// Currently, using that context causes test failures.
 	ctx := context.TODO()
@@ -1614,8 +1618,6 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 	defer func() {
 		klog.V(4).InfoS("syncPod exit", "pod", klog.KObj(pod), "podUID", pod.UID, "isTerminal", isTerminal)
 	}()
-	timeNow := time.Now().UnixNano()
-	klog.V(0).Infof("[cfork@%d,%06d]: Start Pod %s\n", timeNow/1e6, timeNow%1e6, pod)
 
 	// Latency measurements for the main workflow are relative to the
 	// first time the pod was seen by kubelet.
